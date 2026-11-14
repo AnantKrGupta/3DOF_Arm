@@ -1,0 +1,40 @@
+{
+  "name": "rehab_arm_3dof",
+  "description": "3-DOF assistive/rehab arm matched to a human LEFT upper limb (BCI prosthesis study). All values are configurable; every module (Python, MATLAB/Simulink, URDF/USD, Isaac Sim) reads this file.",
+  "side": "left",
+
+  "joint_names": ["shoulder_abduction", "shoulder_flexion", "elbow_flexion"],
+  "joint_limits_deg": [[-20.0, 150.0], [-45.0, 160.0], [0.0, 145.0]],
+  "qdot_max_deg_s": [90.0, 90.0, 120.0],
+  "tau_max_Nm": [25.0, 25.0, 12.0],
+  "viscous_Nms_rad": [0.15, 0.15, 0.08],
+
+  "links": {
+    "L1_upper_arm_m": 0.30,
+    "L2_forearm_hand_m": 0.35,
+    "r1_upper_arm_radius_m": 0.035,
+    "r2_forearm_radius_m": 0.030
+  },
+  "mass": {
+    "m1_upper_arm_kg": 1.60,
+    "m2_forearm_kg": 1.10,
+    "mp_payload_kg": 0.50
+  },
+  "com_ratio": {
+    "c1_upper_arm": 0.45,
+    "c2_forearm": 0.42
+  },
+  "gravity_m_s2": 9.81,
+
+  "world": {
+    "shoulder_position_m": [0.0, 0.0, 1.20]
+  },
+
+  "safety": {
+    "d_slow_m": 0.30,
+    "d_stop_m": 0.10,
+    "d_resume_m": 0.15,
+    "obstacle_radius_m": 0.05,
+    "alpha_rate_limit_per_s": 4.0
+  }
+}

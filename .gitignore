@@ -1,0 +1,16 @@
+# Python & caches
+__pycache__/
+*.py[cod]
+.pytest_cache/
+*.egg-info/
+
+# MATLAB / Simulink generated binaries & autosaves
+*.asv
+*.slxc
+slprj/
+matlab/*.mex*
+
+# Large transient logs
+results/*_log.txt
+
+# Keep generated assets and results plots/summaries tracked so GitHub/Kaggle has everything ready

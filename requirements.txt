@@ -1,0 +1,8 @@
+numpy>=1.26
+scipy>=1.11
+matplotlib>=3.8
+sympy>=1.12
+usd-core>=24.08
+imageio>=2.34
+pillow>=10.0
+pytest>=8.0

@@ -1,0 +1,19 @@
+{
+  "source": "local_usd_dynamics_preview",
+  "duration_s": 26.0,
+  "wall_time_s": 14.06,
+  "time_in_RUN_s": 17.05,
+  "time_in_SLOW_s": 3.3333333333333335,
+  "time_in_STOP_s": 5.616666666666666,
+  "protective_stops": 2,
+  "min_separation_m": 0.037204165544638526,
+  "overlap_channel_available": false,
+  "overlap_hits": 315,
+  "max_ee_twin_error_mm": 1.1920929216185198e-05,
+  "thresholds_m": {
+    "d_slow": 0.3,
+    "d_stop": 0.1,
+    "d_resume": 0.15
+  },
+  "validation_max_ee_mismatch_mm": 1.192092913271381e-05
+}

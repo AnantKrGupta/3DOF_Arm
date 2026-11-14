@@ -1,0 +1,70 @@
+{
+  "workspace": {
+    "samples": 200000,
+    "max_reach_m": 0.6499999999887996,
+    "convex_hull_volume_m3": 0.9616466074153563,
+    "voxel_volume_m3_2cm": 0.5631760000000001,
+    "x_range_m": [
+      -0.45445090554186907,
+      0.6499945207788271
+    ],
+    "y_range_m": [
+      -0.630507356204762,
+      0.6498176007211224
+    ],
+    "z_range_m": [
+      0.5504442892870205,
+      1.8314534036653232
+    ],
+    "manipulability_mean": 0.02353963457595849,
+    "manipulability_max": 0.05261666636408185,
+    "fraction_near_singular_(w<0.1*max)": 0.13535
+  },
+  "singularity_checks": [
+    {
+      "q_deg": [
+        17.19,
+        34.38,
+        0.0
+      ],
+      "singular_values": [
+        0.738241,
+        0.536468,
+        0.0
+      ]
+    },
+    {
+      "q_deg": [
+        28.65,
+        58.95,
+        57.3
+      ],
+      "singular_values": [
+        0.65599,
+        0.134689,
+        0.0
+      ]
+    }
+  ],
+  "resolved_rate_near_singularity": {
+    "pinv": {
+      "peak_joint_rate_deg_s": [
+        901.2,
+        42.6,
+        20.4
+      ],
+      "max_hand_error_mm": 0.11165990168612337,
+      "exceeds_qdot_max": true
+    },
+    "dls": {
+      "peak_joint_rate_deg_s": [
+        91.5,
+        42.6,
+        20.0
+      ],
+      "max_hand_error_mm": 31.411460556904128,
+      "exceeds_qdot_max": true
+    }
+  },
+  "rehab_task_min_manipulability": 0.00019105586549401907
+}
