@@ -45,9 +45,34 @@ os.environ["ACCEPT_EULA"] = "Y"
 print(WORK, REPO, VENV)
 """)
 
-md("## 1. System check (GPU, driver, glibc, RAM, disk)")
+md("## 1. System & network pre-flight check (GPU, Internet, glibc, RAM, disk)")
 code(r"""
-!nvidia-smi
+import shutil, subprocess, urllib.request
+
+if not shutil.which("nvidia-smi"):
+    raise RuntimeError(
+        "No NVIDIA GPU detected! In Kaggle, open the right-hand 'Session options' panel -> "
+        "Accelerator -> select 'GPU T4 x1' (or 'T4 x2')."
+    )
+gpu = subprocess.run(
+    ["nvidia-smi", "--query-gpu=name,driver_version,memory.total", "--format=csv,noheader"],
+    capture_output=True, text=True
+)
+if gpu.returncode != 0 or not gpu.stdout.strip():
+    raise RuntimeError(f"nvidia-smi failed ({gpu.stderr.strip()}). Enable GPU T4 in Session options.")
+print("GPU:", gpu.stdout.strip())
+
+try:
+    urllib.request.urlopen("https://pypi.org", timeout=8).close()
+    print("Internet: OK (reachable)")
+except Exception as exc:
+    raise RuntimeError(
+        "No Internet access detected! In Kaggle:\n"
+        "  1. Verify your phone number under Account Settings.\n"
+        "  2. Open the right-hand 'Session options' panel -> toggle 'Internet' ON.\n"
+        f"Details: {exc}"
+    ) from exc
+
 !ldd --version | head -1
 !python3 --version
 !free -h | head -2
@@ -57,43 +82,81 @@ code(r"""
 md(r"""
 ## 2. Vulkan / RTX user-space driver
 Isaac Sim's RTX renderer needs the NVIDIA **Vulkan ICD** and **OptiX** libraries. Cloud notebook containers
-usually ship only the CUDA part of the driver, so we extract the matching user-space libraries from the official
-NVIDIA driver package (same version as the host kernel driver, no kernel module is installed).
+usually ship only the CUDA part of the driver, so we install `libvulkan1` + `libnvidia-gl-<major>` via `apt`
+and extract the full matching user-space libraries from the official NVIDIA driver package (same version as the
+host kernel driver; no kernel module is installed).
 """)
 code(r"""
-%%bash
-set -e
+import subprocess
+
+bash_script = r'''
 DRV=$(nvidia-smi --query-gpu=driver_version --format=csv,noheader | head -1 | tr -d ' ')
-echo "Host driver: $DRV"
-apt-get -qq update >/dev/null 2>&1 || true
-apt-get -qq install -y libvulkan1 vulkan-tools libglu1-mesa libxt6 libegl1 >/dev/null 2>&1 || true
+if [ -z "$DRV" ]; then
+  echo "ERROR: Could not read NVIDIA driver version from nvidia-smi." >&2
+  exit 1
+fi
+DRV_MAJOR=${DRV%%.*}
+echo "Host driver: $DRV (major: $DRV_MAJOR)"
+
+export DEBIAN_FRONTEND=noninteractive
+apt-get -qq update
+apt-get -qq install -y libvulkan1 vulkan-tools libglu1-mesa libxt6 libegl1 curl
+apt-get -qq install -y "libnvidia-gl-${DRV_MAJOR}" || echo "Note: libnvidia-gl-${DRV_MAJOR} unavailable via apt; will rely on .run extraction"
+
 LIBDIR=/usr/lib/x86_64-linux-gnu
-if [ -e $LIBDIR/libGLX_nvidia.so.$DRV ] && [ -e $LIBDIR/libnvoptix.so.$DRV ] && ls /usr/share/vulkan/icd.d/nvidia_icd.json >/dev/null 2>&1; then
+if [ -e "$LIBDIR/libGLX_nvidia.so.$DRV" ] && [ -e "$LIBDIR/libnvoptix.so.$DRV" ] && ls /usr/share/vulkan/icd.d/nvidia_icd.json >/dev/null 2>&1; then
   echo "Vulkan/OptiX user-space driver already present"
 else
   cd /tmp
-  RUN=NVIDIA-Linux-x86_64-$DRV.run
-  [ -f $RUN ] || wget -q https://us.download.nvidia.com/tesla/$DRV/$RUN || wget -q https://us.download.nvidia.com/XFree86/Linux-x86_64/$DRV/$RUN
-  rm -rf NVIDIA-Linux-x86_64-$DRV && sh $RUN -x >/dev/null
-  cd NVIDIA-Linux-x86_64-$DRV
-  for lib in libGLX_nvidia libEGL_nvidia libnvidia-glcore libnvidia-eglcore libnvidia-glsi libnvidia-glvkspirv \
-             libnvidia-tls libnvidia-rtcore libnvoptix libnvidia-gpucomp libnvidia-allocator libnvidia-cbl \
-             libnvidia-ptxjitcompiler libnvidia-nvvm; do
-    for f in $lib.so.$DRV; do
-      [ -f "$f" ] && [ ! -e $LIBDIR/$f ] && cp "$f" $LIBDIR/ && echo "installed $f"
+  RUN="NVIDIA-Linux-x86_64-${DRV}.run"
+  if [ ! -s "$RUN" ]; then
+    for URL in \
+      "https://download.nvidia.com/XFree86/Linux-x86_64/${DRV}/${RUN}" \
+      "https://us.download.nvidia.com/tesla/${DRV}/${RUN}" \
+      "https://us.download.nvidia.com/XFree86/Linux-x86_64/${DRV}/${RUN}"; do
+      echo "Trying $URL ..."
+      if curl -fSL --retry 3 --connect-timeout 15 -o "$RUN" "$URL" && [ -s "$RUN" ]; then
+        echo "Downloaded $RUN"
+        break
+      fi
+      rm -f "$RUN"
     done
-  done
-  ln -sf libGLX_nvidia.so.$DRV  $LIBDIR/libGLX_nvidia.so.0
-  ln -sf libEGL_nvidia.so.$DRV  $LIBDIR/libEGL_nvidia.so.0
-  ln -sf libnvoptix.so.$DRV     $LIBDIR/libnvoptix.so.1
-  [ -f libnvidia-nvvm.so.$DRV ] && ln -sf libnvidia-nvvm.so.$DRV $LIBDIR/libnvidia-nvvm.so.4 || true
-  mkdir -p /usr/share/vulkan/icd.d /usr/share/glvnd/egl_vendor.d
-  ICD=$(ls nvidia_icd.json* | head -1)
-  sed 's/__NV_VK_ICD__/libGLX_nvidia.so.0/' $ICD > /usr/share/vulkan/icd.d/nvidia_icd.json
-  [ -f 10_nvidia.json ] && cp 10_nvidia.json /usr/share/glvnd/egl_vendor.d/ || true
-  ldconfig
+  fi
+
+  if [ -s "$RUN" ]; then
+    rm -rf "NVIDIA-Linux-x86_64-${DRV}"
+    sh "$RUN" -x >/dev/null
+    cd "NVIDIA-Linux-x86_64-${DRV}"
+    for lib in libGLX_nvidia libEGL_nvidia libnvidia-glcore libnvidia-eglcore libnvidia-glsi libnvidia-glvkspirv \
+               libnvidia-tls libnvidia-rtcore libnvoptix libnvidia-gpucomp libnvidia-allocator libnvidia-cbl \
+               libnvidia-ptxjitcompiler libnvidia-nvvm; do
+      for f in ${lib}.so.${DRV}; do
+        [ -f "$f" ] && [ ! -e "$LIBDIR/$f" ] && cp "$f" "$LIBDIR/" && echo "installed $f"
+      done
+    done
+    ln -sf "libGLX_nvidia.so.${DRV}" "$LIBDIR/libGLX_nvidia.so.0"
+    ln -sf "libEGL_nvidia.so.${DRV}" "$LIBDIR/libEGL_nvidia.so.0"
+    [ -e "$LIBDIR/libnvoptix.so.${DRV}" ] && ln -sf "libnvoptix.so.${DRV}" "$LIBDIR/libnvoptix.so.1" || true
+    [ -f "libnvidia-nvvm.so.${DRV}" ] && ln -sf "libnvidia-nvvm.so.${DRV}" "$LIBDIR/libnvidia-nvvm.so.4" || true
+    mkdir -p /usr/share/vulkan/icd.d /usr/share/glvnd/egl_vendor.d
+    ICD=$(ls nvidia_icd.json* 2>/dev/null | head -1)
+    if [ -n "$ICD" ]; then
+      sed 's/__NV_VK_ICD__/libGLX_nvidia.so.0/' "$ICD" > /usr/share/vulkan/icd.d/nvidia_icd.json
+    fi
+    [ -f 10_nvidia.json ] && cp 10_nvidia.json /usr/share/glvnd/egl_vendor.d/ || true
+    ldconfig
+  else
+    echo "WARNING: Could not download $RUN from NVIDIA mirrors; using apt-installed Vulkan libraries if present."
+    ldconfig
+  fi
 fi
-vulkaninfo --summary 2>/dev/null | grep -E "deviceName|driverVersion|apiVersion" || echo "WARNING: vulkaninfo found no GPU"
+
+vulkaninfo --summary 2>/dev/null | grep -E "deviceName|driverVersion|apiVersion" || {
+  echo "ERROR: vulkaninfo still sees no GPU. Check /usr/share/vulkan/icd.d and driver version $DRV." >&2
+  exit 1
+}
+'''
+subprocess.run(["bash", "-c", bash_script], check=True)
 """)
 
 md("## 3. Get the project code")
