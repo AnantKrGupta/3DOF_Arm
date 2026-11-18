@@ -36,8 +36,9 @@ ISAAC_VERSION = "5.1.0"          # pip version of isaacsim (Python 3.11)
 SDG_FRAMES    = 300              # Replicator frames
 TWIN_DURATION = 26.0             # seconds of safety demo
 import os, pathlib
-IS_KAGGLE = os.path.exists("/kaggle")
+IS_KAGGLE = os.path.exists("/kaggle/working")
 WORK = pathlib.Path("/kaggle/working" if IS_KAGGLE else "/content")
+WORK.mkdir(parents=True, exist_ok=True)
 REPO = pathlib.Path("/root/rehab_arm_3dof")      # outside /kaggle/working (20 GB limit)
 VENV = pathlib.Path("/root/isaac_env")
 os.environ["OMNI_KIT_ACCEPT_EULA"] = "YES"
@@ -188,6 +189,7 @@ code(r"""
 import subprocess, sys, time
 def run_isaac(script, *args, log_name=None, keys=("[twin]", "[sdg]", "[smoke]", "Error", "error:", "Traceback", "Exception")):
     log_path = WORK / (log_name or (pathlib.Path(script).stem + ".log"))
+    log_path.parent.mkdir(parents=True, exist_ok=True)
     cmd = [str(VENV / "bin/python"), str(REPO / script), *map(str, args)]
     t0 = time.time()
     with open(log_path, "w") as log:
